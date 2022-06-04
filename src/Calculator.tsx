@@ -56,32 +56,54 @@ const errorState = (errorMessage: string): CalculatorState => ({
 });
 
 function Calculator() {
-  const [state, setState] = useState<CalculatorState>({ ...initialState });
+  const [prevNumber, setPrevNumber] = useState<CalculatorState['prevNumber']>(null);
+  const [nextNumber, setNextNumber] = useState<CalculatorState['nextNumber']>(null);
+  const [operator, setOperator] = useState<CalculatorState['operator']>(null);
+  const [result, setResult] = useState<CalculatorState['result']>('');
+  const [completed, setCompleted] = useState<CalculatorState['completed']>(false);
 
   useEffect(() => {
-    const localState = JSON.parse(localStorage.getItem(localStorageKey) || '{}');
-    setState({ ...initialState, ...localState });
+    const localState = JSON.parse(localStorage.getItem(localStorageKey) || JSON.stringify(initialState));
+    setPrevNumber(Number(localState.prevNumber)); // Number(null) === 0;
+    setNextNumber(Number(localState.nextNumber));
+    setOperator(localState.operator);
+    setResult(localState.result);
+    setCompleted(localState.completed);
   }, []);
 
   useEffect(() => {
     const saveCurrentStateBeforeLeave = (event: BeforeUnloadEvent) => {
       event.preventDefault();
-      localStorage.setItem(localStorageKey, JSON.stringify(state));
-      event.returnValue = '';
+      localStorage.setItem(
+        localStorageKey,
+        JSON.stringify({
+          prevNumber,
+          nextNumber,
+          operator,
+          result,
+          completed,
+        }),
+      );
     };
     window.addEventListener('beforeunload', saveCurrentStateBeforeLeave);
     return () => window.removeEventListener('beforeunload', saveCurrentStateBeforeLeave);
-  }, [state]);
+  }, [prevNumber, nextNumber, operator, result, completed]);
+
+  const reset = () => {
+    setPrevNumber(initialState.prevNumber);
+    setNextNumber(initialState.nextNumber);
+    setOperator(initialState.operator);
+    setResult(initialState.result);
+    setCompleted(initialState.completed);
+  };
 
   const handleClickDigitBtn = (digit: number) => {
-    const { prevNumber, nextNumber, operator, completed } = state;
-
     const isPrevNumberTurn = operator === null;
     const targetNumber = isPrevNumberTurn ? prevNumber : nextNumber;
 
     // =를 눌러서 연산이 끝났는데 또 숫자를 누르면 초기화를 한다
     if (completed) {
-      setState({ ...initialState });
+      reset();
       return;
     }
 
@@ -93,73 +115,67 @@ function Calculator() {
 
     if (isPrevNumberTurn) {
       const newNumber = Number(`${prevNumber ?? ''}${digit}`);
-      setState({
-        ...state,
-        prevNumber: newNumber,
-        result: `${newNumber}`,
-      });
+      setPrevNumber(newNumber);
+      setResult(`${newNumber}`);
       return;
     }
 
     const newNumber = `${nextNumber ?? ''}${digit}`;
-    const result = `${prevNumber}${operator}${newNumber}`;
-    setState({
-      ...state,
-      nextNumber: Number(newNumber),
-      result,
-    });
+    setNextNumber(Number(newNumber));
+    setResult(`${prevNumber}${operator}${newNumber}`);
   };
 
   const handleClickOperatorBtn = (_operator: Operator) => {
-    const { prevNumber } = state;
-
-    if (state.operator) {
+    if (operator) {
       window.alert(ERROR_MESSAGE.MULTIPLE_OPERATOR);
       return;
     }
 
     const isValidOperator = Object.values(Operator).includes(_operator);
     if (!isValidOperator) {
-      setState({ ...errorState(ERROR_MESSAGE.NOT_OPERATOR) });
+      setResult(ERROR_MESSAGE.NOT_OPERATOR);
       return;
     }
     if (prevNumber === null) {
-      setState({ ...errorState(ERROR_MESSAGE.INPUT_ORDER) });
+      setResult(ERROR_MESSAGE.INPUT_ORDER);
       return;
     }
 
-    setState({ ...state, operator: _operator, result: `${prevNumber}${_operator}`, completed: false });
+    setOperator(_operator);
+    setResult(`${prevNumber}${_operator}`);
+    setCompleted(false);
   };
 
   const handleClickCalculateBtn = () => {
-    const { prevNumber, nextNumber, operator } = state;
-
+    console.log(prevNumber, operator, nextNumber);
     if (prevNumber === null) return;
     if (operator === null) return;
     if (nextNumber === null) {
-      setState({ ...state, operator: null });
+      setOperator(null);
       return;
     }
 
     const operatorFn = operatorMap[operator];
     if (operatorFn === null) return;
 
-    const result = Math.floor(operatorFn(prevNumber, nextNumber));
-    if (Number.isNaN(result)) {
-      setState({ ...errorState(ERROR_MESSAGE.NOT_NUMBER) });
+    const newResult = Math.floor(operatorFn(prevNumber, nextNumber));
+    if (Number.isNaN(newResult)) {
+      setResult(ERROR_MESSAGE.NOT_NUMBER);
       return;
     }
-    if (!Number.isFinite(result)) {
-      setState({ ...errorState(ERROR_MESSAGE.INFINITY_NUMBER) });
+    if (!Number.isFinite(newResult)) {
+      setResult(ERROR_MESSAGE.INFINITY_NUMBER);
       return;
     }
 
-    setState({ prevNumber: result, nextNumber: null, operator: null, result: `${result}`, completed: true });
+    setPrevNumber(newResult);
+    setNextNumber(null);
+    setOperator(null);
+    setResult(`${newResult}`);
+    setCompleted(true);
   };
 
-  const handleClickResetBtn = () => setState({ ...initialState });
-
-  const { result } = state;
+  const handleClickResetBtn = () => reset();
 
   return (
     <div className="calculator">
@@ -175,11 +191,11 @@ function Calculator() {
         </button>
       </div>
       <div className="operations subgrid">
-        {operators.map(operator => (
+        {operators.map(_operator => (
           <OperatorButton
-            key={operator}
-            isFocused={state.operator === operator}
-            operator={operator}
+            key={_operator}
+            isFocused={operator === _operator}
+            operator={_operator}
             onClick={handleClickOperatorBtn}
           />
         ))}
