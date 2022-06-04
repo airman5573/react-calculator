@@ -1,4 +1,3 @@
-import { nanoid } from 'nanoid';
 import React, { useEffect, useState } from 'react';
 import DigitButton from './components/DigitButton';
 import OperatorButton from './components/OperatorButton';
@@ -16,7 +15,7 @@ const ERROR_MESSAGE = {
 const operators: Array<Operator> = [Operator.plus, Operator.minus, Operator.multiply, Operator.divide];
 
 // [9, 8, 7, 6, 5, 4, 3, 2, 1, 0];
-const DIGITS = Array.from({ length: 10 }, (_, i) => ({ id: nanoid(), digit: 9 - i }));
+const DIGITS = Array.from({ length: 10 }, (_, i) => ({ id: i, digit: 9 - i }));
 
 const arithmeticOperation = {
   plus: (num1: number, num2: number) => num1 + num2,
